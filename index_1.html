@@ -1,0 +1,1474 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>霧の古城 — Mist Keep</title>
+<style>
+  html, body { margin:0; padding:0; overflow:hidden; height:100%; background:#0b0c12; font-family:'Hiragino Mincho ProN','Yu Mincho',serif; }
+  #overlay {
+    position:fixed; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center;
+    text-align:center; background:radial-gradient(ellipse at center, rgba(20,22,32,0.88) 0%, rgba(5,6,10,0.97) 100%);
+    color:#c8c2ae; z-index:10; transition:opacity 1.2s ease;
+  }
+  #overlay.hidden { opacity:0; pointer-events:none; }
+  #overlay h1 { font-size:2.6em; margin:0 0 4px; font-weight:400; letter-spacing:0.35em; color:#d8cfae; text-shadow:0 0 30px rgba(180,150,80,0.45); }
+  #overlay .sub { font-size:0.8em; letter-spacing:0.3em; color:#6d6a5c; margin-bottom:18px; }
+  #overlay p { max-width:560px; line-height:1.9; font-size:0.9em; margin:5px 24px; color:#8f8b7a; }
+  .btn {
+    margin:8px 6px 0; padding:13px 40px; font-size:1em; letter-spacing:0.2em; font-family:inherit;
+    color:#d8cfae; background:rgba(120,100,50,0.12); border:1px solid #7a6a3a; border-radius:3px; cursor:pointer; transition:all .25s;
+  }
+  .btn:hover { background:rgba(160,130,60,0.3); box-shadow:0 0 20px rgba(170,140,70,0.35); }
+  .btn:disabled { opacity:0.3; cursor:default; box-shadow:none; }
+  #hud {
+    position:fixed; left:16px; bottom:14px; z-index:5; pointer-events:none; color:#cfc9b4;
+    font-size:14px; text-shadow:0 1px 2px #000; display:none; min-width:230px;
+  }
+  .bar { height:10px; width:210px; background:rgba(10,10,14,0.75); border:1px solid #4a4536; margin:3px 0 6px; }
+  .bar > div { height:100%; width:100%; transform-origin:left; }
+  #hpBar > div { background:linear-gradient(#b3452f,#7c2418); }
+  #mpBar > div { background:linear-gradient(#3f6ea8,#274a77); }
+  #xpBar { height:5px; } #xpBar > div { background:#8a7c3f; }
+  #eq { font-size:12px; color:#8f8b7a; margin-top:2px; }
+  #items { font-size:12px; color:#a9a28a; margin-top:2px; }
+  #msgs {
+    position:fixed; left:50%; transform:translateX(-50%); bottom:90px; z-index:6; pointer-events:none;
+    display:none; text-align:center; width:90%;
+  }
+  #msgs div { color:#e2d9bc; text-shadow:0 1px 3px #000; font-size:15px; margin:3px 0; opacity:0.95; letter-spacing:0.06em; }
+  #prompt {
+    position:fixed; left:50%; bottom:44%; transform:translateX(-50%); z-index:6; pointer-events:none; display:none;
+    color:#f0e6c8; background:rgba(15,14,10,0.7); border:1px solid #6a5f3f; padding:6px 18px; font-size:14px; letter-spacing:0.1em;
+  }
+  #cross { position:fixed; left:50%; top:50%; transform:translate(-50%,-50%); z-index:5; color:rgba(220,210,180,0.7); font-size:14px; display:none; pointer-events:none; }
+  #dmgFlash { position:fixed; inset:0; z-index:8; pointer-events:none; background:radial-gradient(ellipse at center, transparent 40%, rgba(150,20,10,0.55) 100%); opacity:0; transition:opacity .12s; }
+  #soundBtn { position:fixed; top:14px; right:14px; z-index:7; background:rgba(15,15,20,0.65); color:#a9a28a; border:1px solid #55503e; border-radius:4px; padding:7px 13px; cursor:pointer; font-size:13px; display:none; font-family:inherit; }
+  #help { position:fixed; right:16px; bottom:12px; z-index:5; color:#6d6a5c; font-size:11px; text-align:right; display:none; pointer-events:none; line-height:1.7; }
+</style>
+</head>
+<body>
+<div id="overlay">
+  <h1>霧 の 古 城</h1>
+  <div class="sub">— MIST KEEP —</div>
+  <p>深い霧に沈む古城。骸骨の兵と蠢く粘塊が、いまも王の秘宝を守り続けている。<br>
+  剣と炎の魔法を頼りに、三つの鍵と王家の紋章を探し出し、玉座の間へ辿り着け。</p>
+  <p style="font-size:0.8em">
+  <b>VR</b>：左スティック移動／右スティック方向転換／右トリガー剣／左トリガー魔法／Aボタン調べる／Bボタン薬草／Xボタンマナ結晶<br>
+  <b>PC</b>：WASD移動・マウス視点／左クリック剣／Fキー魔法／Eキー調べる／Qキー薬草／Rキーマナ結晶<br>
+  ゆっくり歩く古典スタイル＋移動時の視野減光で、VR酔いを抑えています。
+  </p>
+  <div>
+    <button class="btn" id="startBtn">はじめから</button>
+    <button class="btn" id="contBtn" style="display:none">つづきから</button>
+    <button class="btn" id="vrBtn" disabled>VRで入る</button>
+  </div>
+  <p style="font-size:0.72em; color:#55503e">90年代の一人称ダンジョンRPGへのオマージュとして制作されたオリジナル作品です。</p>
+</div>
+<div id="hud">
+  <div>Lv <span id="lv">1</span>　<span id="hpTxt"></span></div>
+  <div class="bar" id="hpBar"><div></div></div>
+  <div class="bar" id="mpBar"><div></div></div>
+  <div class="bar" id="xpBar"><div></div></div>
+  <div id="eq"></div>
+  <div id="items"></div>
+</div>
+<div id="msgs"></div>
+<div id="prompt"></div>
+<div id="cross">＋</div>
+<div id="dmgFlash"></div>
+<button id="soundBtn">♪ 音楽：ON</button>
+<div id="help">WASD:移動　Shift:早歩き　左クリック:剣　F:魔法<br>E:調べる　Q:薬草　R:マナ結晶　ESC:マウス解放</div>
+
+<script type="module">
+// ======== three.js loader (multi-CDN fallback) ========
+let THREE = null;
+for (const url of [
+  'https://cdnjs.cloudflare.com/ajax/libs/three.js/0.160.0/three.module.min.js',
+  'https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.min.js',
+  'https://unpkg.com/three@0.160.0/build/three.module.min.js'
+]) { try { THREE = await import(url); break; } catch(e) { console.warn('CDN失敗:', url); } }
+if (!THREE) {
+  document.getElementById('overlay').innerHTML = '<h1>読み込みエラー</h1><p>ライブラリを取得できませんでした。接続を確認して再読み込みしてください。</p>';
+  throw new Error('three.js load failed');
+}
+// ================= マップ =================
+// # 壁 / . 床 / P 開始 / D 木扉 / 1 鉄扉 / 2 銀扉 / 3 金扉 / 4 紋章扉
+// C 宝箱 / K 骸骨兵 / M スライム / h 薬草 / u 回復薬 / n マナ結晶 / * 金貨 / L ランタン / W 王家の秘宝
+const MAP = [
+"#################################",
+"#P.......#..........#...........#",
+"#...h....#..........#..K......*.#",
+"#........D....K.....1......C....#",
+"#..M.....#..........#....L......#",
+"#...C....#..........######2######",
+"#........#....C.....#...........#",
+"####D#####..........#....h......#",
+"#..u.....#..........#..M......C.#",
+"#..K.....#..........#...........#",
+"#........#......h...#....C......#",
+"#...C....#....K.....####D########",
+"#........D..........#...........#",
+"#..h.....#..........#..K....C...#",
+"#...n....#....M.....#...........#",
+"####1#########D##################",
+"#........#....u.....#...........#",
+"#...*....#..n.......#....C......#",
+"#..M.....#..........#...........#",
+"#........#......K...3.....C.....#",
+"#...C....#..........#..K........#",
+"#..h.....#...M......#......C....#",
+"#........#..........####4########",
+"#........#....C.....#...........#",
+"#..M.....#..........#.....W.....#",
+"#........#....C.....#...........#",
+"#################################"
+];
+const ROWS = MAP.length, COLS = MAP[0].length;
+const CELL = 3, WALL_H = 3.4;
+// 屋外（中庭）矩形: 星空が見える
+const OUTDOOR = { r0:1, r1:6, c0:1, c1:8 };
+const cx2w = c => (c + 0.5) * CELL;   // grid -> world
+const rz2w = r => (r + 0.5) * CELL;
+const w2c = x => Math.floor(x / CELL);
+
+const grid = MAP.map(row => row.split(''));
+function cellAt(c, r) { return (r>=0 && r<ROWS && c>=0 && c<COLS) ? grid[r][c] : '#'; }
+const isDoorChar = ch => ch==='D'||ch==='1'||ch==='2'||ch==='3'||ch==='4';
+
+// ================= アイテム図鑑（20種） =================
+const ITEMS = {
+  oldSword:    { name:'古びた剣',     kind:'weapon', atk:4 },
+  knightSword: { name:'騎士の剣',     kind:'weapon', atk:9 },
+  moonSword:   { name:'月影の剣',     kind:'weapon', atk:15 },
+  woodShield:  { name:'木の盾',       kind:'shield', def:2 },
+  knightShield:{ name:'騎士の盾',     kind:'shield', def:5 },
+  leatherArmor:{ name:'革の鎧',       kind:'armor',  def:3 },
+  knightArmor: { name:'騎士の鎧',     kind:'armor',  def:7 },
+  powerRing:   { name:'力の指輪',     kind:'ring',   atk:3 },
+  guardRing:   { name:'守りの指輪',   kind:'ring2',  def:3 },
+  lantern:     { name:'銀のランタン', kind:'lantern' },
+  herb:        { name:'薬草',         kind:'consume', heal:18 },
+  potion:      { name:'回復薬',       kind:'consume', heal:45 },
+  manaGem:     { name:'マナの結晶',   kind:'consume', mana:12 },
+  elixir:      { name:'エリクサー',   kind:'consume', full:true },
+  ironKey:     { name:'鉄の鍵',       kind:'key', door:'1' },
+  silverKey:   { name:'銀の鍵',       kind:'key', door:'2' },
+  goldKey:     { name:'金の鍵',       kind:'key', door:'3' },
+  crest:       { name:'王家の紋章',   kind:'key', door:'4' },
+  coin:        { name:'古代金貨',     kind:'treasure' },
+  relic:       { name:'王家の秘宝',   kind:'goal' },
+};
+// 宝箱の中身（マップ上の行優先順）
+const CHEST_CONTENTS = [
+  'knightSword', // R3  兵舎（鉄）
+  'ironKey',     // R5  中庭
+  'woodShield',  // R6  大広間
+  'leatherArmor',// R8  控えの間（銀）
+  'guardRing',   // R10 控えの間（銀）
+  'silverKey',   // R11 物置
+  'powerRing',   // R13 東小部屋（銀）
+  'knightShield',// R17 宝物庫（金）
+  'elixir',      // R19 宝物庫（金）
+  'goldKey',     // R20 南西地下墓所（鉄）
+  'crest',       // R21 宝物庫（金）
+  'moonSword',   // R23 水路
+  'knightArmor', // R25 水路
+];
+const GROUND_ITEM_CHARS = { h:'herb', u:'potion', n:'manaGem', '*':'coin', L:'lantern' };
+const DOOR_NAMES = { D:'木の扉', 1:'鉄の扉', 2:'銀の扉', 3:'金の扉', 4:'紋章の扉' };
+const DOOR_KEYS  = { 1:'ironKey', 2:'silverKey', 3:'goldKey', 4:'crest' };
+
+// ================= 基本セットアップ =================
+const scene = new THREE.Scene();
+const FOG_COLOR = 0x11131c;
+scene.background = new THREE.Color(FOG_COLOR);
+scene.fog = new THREE.FogExp2(FOG_COLOR, 0.072);
+
+const camera = new THREE.PerspectiveCamera(68, innerWidth/innerHeight, 0.05, 220);
+camera.rotation.order = 'YXZ';
+const rig = new THREE.Group();
+rig.add(camera);
+scene.add(rig);
+
+const renderer = new THREE.WebGLRenderer({ antialias:true });
+renderer.setSize(innerWidth, innerHeight);
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.xr.enabled = true;
+renderer.xr.setReferenceSpaceType('local-floor');
+document.body.appendChild(renderer.domElement);
+addEventListener('resize', () => {
+  camera.aspect = innerWidth/innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(innerWidth, innerHeight);
+});
+
+// ================= テクスチャ（手続き生成） =================
+function makeStoneTexture(base, mortar, blocks) {
+  const s = 128, cv = document.createElement('canvas'); cv.width = cv.height = s;
+  const g = cv.getContext('2d');
+  g.fillStyle = base; g.fillRect(0,0,s,s);
+  // 石ブロック
+  g.strokeStyle = mortar; g.lineWidth = 3;
+  const bh = s/blocks;
+  for (let y=0; y<blocks; y++) {
+    g.beginPath(); g.moveTo(0, y*bh); g.lineTo(s, y*bh); g.stroke();
+    const off = (y%2) ? bh : bh/2;
+    for (let x=off; x<s; x+=bh*1.6) { g.beginPath(); g.moveTo(x, y*bh); g.lineTo(x, (y+1)*bh); g.stroke(); }
+  }
+  // ノイズ
+  const im = g.getImageData(0,0,s,s), d = im.data;
+  for (let i=0; i<d.length; i+=4) {
+    const n = (Math.random()-0.5)*22;
+    d[i]+=n; d[i+1]+=n; d[i+2]+=n;
+  }
+  g.putImageData(im,0,0);
+  const tx = new THREE.CanvasTexture(cv);
+  tx.wrapS = tx.wrapT = THREE.RepeatWrapping;
+  return tx;
+}
+const wallTex = makeStoneTexture('#4a4a52', '#2c2c33', 4);
+const floorTex = makeStoneTexture('#33333b', '#202026', 5);
+floorTex.repeat.set(COLS, ROWS);
+const ceilTex = makeStoneTexture('#2b2b31', '#1c1c22', 3);
+
+// ================= 世界構築 =================
+const worldGroup = new THREE.Group();
+scene.add(worldGroup);
+
+// 壁（InstancedMesh）
+{
+  const wallCells = [];
+  for (let r=0; r<ROWS; r++) for (let c=0; c<COLS; c++) if (cellAt(c,r)==='#') {
+    // 周囲がすべて壁なら描画不要
+    let exposed = false;
+    for (const [dc,dr] of [[1,0],[-1,0],[0,1],[0,-1]]) if (cellAt(c+dc,r+dr) !== '#') { exposed = true; break; }
+    if (exposed) wallCells.push([c,r]);
+  }
+  const geo = new THREE.BoxGeometry(CELL, WALL_H, CELL);
+  const mat = new THREE.MeshLambertMaterial({ map: wallTex });
+  const inst = new THREE.InstancedMesh(geo, mat, wallCells.length);
+  const m4 = new THREE.Matrix4();
+  wallCells.forEach(([c,r], i) => {
+    m4.makeTranslation(cx2w(c), WALL_H/2, rz2w(r));
+    inst.setMatrixAt(i, m4);
+  });
+  worldGroup.add(inst);
+}
+// 床
+{
+  const geo = new THREE.PlaneGeometry(COLS*CELL, ROWS*CELL);
+  geo.rotateX(-Math.PI/2);
+  const mesh = new THREE.Mesh(geo, new THREE.MeshLambertMaterial({ map: floorTex }));
+  mesh.position.set(COLS*CELL/2, 0, ROWS*CELL/2);
+  worldGroup.add(mesh);
+}
+// 天井（屋外中庭を除く床セル上）
+{
+  const ceilCells = [];
+  for (let r=0; r<ROWS; r++) for (let c=0; c<COLS; c++) {
+    if (cellAt(c,r)==='#') continue;
+    const outdoor = r>=OUTDOOR.r0 && r<=OUTDOOR.r1 && c>=OUTDOOR.c0 && c<=OUTDOOR.c1;
+    if (!outdoor) ceilCells.push([c,r]);
+  }
+  const geo = new THREE.PlaneGeometry(CELL, CELL);
+  geo.rotateX(Math.PI/2);
+  const mat = new THREE.MeshLambertMaterial({ map: ceilTex });
+  const inst = new THREE.InstancedMesh(geo, mat, ceilCells.length);
+  const m4 = new THREE.Matrix4();
+  ceilCells.forEach(([c,r], i) => {
+    m4.makeTranslation(cx2w(c), WALL_H, rz2w(r));
+    inst.setMatrixAt(i, m4);
+  });
+  worldGroup.add(inst);
+}
+// 星空（中庭の上に見える）
+{
+  const n = 700, pos = new Float32Array(n*3);
+  for (let i=0;i<n;i++) {
+    const t = Math.random()*Math.PI*2, u = Math.random()*0.9+0.1, R = 180;
+    pos[i*3]   = COLS*CELL/2 + R*Math.cos(t)*Math.sqrt(1-u*u);
+    pos[i*3+1] = R*u;
+    pos[i*3+2] = ROWS*CELL/2 + R*Math.sin(t)*Math.sqrt(1-u*u);
+  }
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.BufferAttribute(pos,3));
+  scene.add(new THREE.Points(g, new THREE.PointsMaterial({ color:0x9db4dd, size:1.4, sizeAttenuation:false, fog:false, transparent:true, opacity:0.8 })));
+}
+
+// ================= 光 =================
+scene.add(new THREE.HemisphereLight(0x2e3448, 0x191410, 0.62));
+{ // 月光（中庭）
+  const moon = new THREE.DirectionalLight(0x8fa3cc, 0.35);
+  moon.position.set(30, 60, 10);
+  scene.add(moon);
+}
+// プレイヤーのランタン
+const lanternLight = new THREE.PointLight(0xffb668, 2.6, 11, 1.4);
+lanternLight.position.set(0, 1.5, 0);
+rig.add(lanternLight);
+
+// 松明（炎スプライト＋一部実光源）
+function makeFlameTexture() {
+  const cv = document.createElement('canvas'); cv.width = cv.height = 64;
+  const g = cv.getContext('2d');
+  const gr = g.createRadialGradient(32,36,2, 32,36,30);
+  gr.addColorStop(0,'#fff3c0'); gr.addColorStop(0.3,'#ffb03a'); gr.addColorStop(0.7,'rgba(200,80,20,0.5)'); gr.addColorStop(1,'rgba(0,0,0,0)');
+  g.fillStyle = gr; g.fillRect(0,0,64,64);
+  return new THREE.CanvasTexture(cv);
+}
+const flameTex = makeFlameTexture();
+const flames = [];
+const TORCHES = [ // [c, r, 実光源?]
+  [4,1,true], [14,2,true], [12,6,false], [17,10,false], [23,1,true], [29,3,false],
+  [25,7,false], [4,9,false], [4,12,false], [15,12,false], [24,13,false],
+  [4,17,false], [13,17,false], [16,19,false], [25,17,true], [24,20,false],
+  [26,24,true], [14,23,false], [12,16,false]
+];
+for (const [c,r,lit] of TORCHES) {
+  if (cellAt(c,r)==='#') continue;
+  // 隣接する壁を探して、その面に付ける
+  let px = cx2w(c), pz = rz2w(r);
+  for (const [dc,dr] of [[0,-1],[1,0],[0,1],[-1,0]]) {
+    if (cellAt(c+dc,r+dr)==='#') { px += dc*CELL*0.38; pz += dr*CELL*0.38; break; }
+  }
+  const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map:flameTex, transparent:true, depthWrite:false, blending:THREE.AdditiveBlending }));
+  sp.scale.set(0.55, 0.8, 1);
+  sp.position.set(px, 2.05, pz);
+  worldGroup.add(sp);
+  flames.push(sp);
+  // 燭台
+  const holder = new THREE.Mesh(new THREE.CylinderGeometry(0.035,0.05,0.45,6), new THREE.MeshLambertMaterial({ color:0x3a2e1c }));
+  holder.position.set(px, 1.72, pz);
+  worldGroup.add(holder);
+  if (lit) {
+    const l = new THREE.PointLight(0xff9944, 1.6, 9, 1.6);
+    l.position.set(px, 2.1, pz);
+    worldGroup.add(l);
+    l.userData.flick = Math.random()*10;
+    flames.push(l);
+  }
+}
+// ================= 扉・宝箱・アイテム・敵の配置 =================
+const doors = [];   // {c,r,ch,mesh,open,opening}
+const chests = [];  // {c,r,id,itemId,mesh,lid,opened}
+const groundItems = []; // {c,r,itemId,mesh,taken,id}
+const enemies = []; // {type,c,r,mesh,hp,...}
+let goalObj = null;
+
+const doorMats = {
+  D: new THREE.MeshLambertMaterial({ color:0x5a4326 }),
+  1: new THREE.MeshLambertMaterial({ color:0x4c4f58 }),
+  2: new THREE.MeshLambertMaterial({ color:0x9aa2ad }),
+  3: new THREE.MeshLambertMaterial({ color:0x9a7f2e }),
+  4: new THREE.MeshLambertMaterial({ color:0x5e3a6e, emissive:0x2a1233 }),
+};
+function buildDoor(c, r, ch) {
+  // 扉の向き: 左右が壁なら南北向き
+  const horiz = cellAt(c-1,r)==='#' && cellAt(c+1,r)==='#';
+  const g = horiz ? new THREE.BoxGeometry(CELL*0.98, WALL_H*0.92, 0.25)
+                  : new THREE.BoxGeometry(0.25, WALL_H*0.92, CELL*0.98);
+  const mesh = new THREE.Mesh(g, doorMats[ch]);
+  mesh.position.set(cx2w(c), WALL_H*0.46, rz2w(r));
+  worldGroup.add(mesh);
+  // 枠
+  const frame = new THREE.Mesh(
+    horiz ? new THREE.BoxGeometry(CELL, 0.3, 0.5) : new THREE.BoxGeometry(0.5, 0.3, CELL),
+    new THREE.MeshLambertMaterial({ color:0x2e2c28 }));
+  frame.position.set(cx2w(c), WALL_H*0.92, rz2w(r));
+  worldGroup.add(frame);
+  doors.push({ c, r, ch, mesh, open:false, anim:0 });
+}
+function buildChest(c, r, idx) {
+  const grp = new THREE.Group();
+  const w=0.85, h=0.5, d=0.55;
+  const bodyMat = new THREE.MeshLambertMaterial({ color:0x6b4a26 });
+  const trimMat = new THREE.MeshLambertMaterial({ color:0x8a7a4a });
+  const body = new THREE.Mesh(new THREE.BoxGeometry(w,h*0.6,d), bodyMat);
+  body.position.y = h*0.3;
+  const lid = new THREE.Group();
+  const lidMesh = new THREE.Mesh(new THREE.BoxGeometry(w,h*0.42,d), bodyMat);
+  lidMesh.position.set(0, h*0.21, -d/2);
+  lid.add(lidMesh);
+  lid.position.set(0, h*0.6, d/2);
+  const band = new THREE.Mesh(new THREE.BoxGeometry(w*1.02, h*0.12, d*1.02), trimMat);
+  band.position.y = h*0.55;
+  grp.add(body, lid, band);
+  grp.position.set(cx2w(c), 0, rz2w(r));
+  grp.rotation.y = Math.random()*Math.PI*2;
+  worldGroup.add(grp);
+  chests.push({ c, r, id:'chest'+idx, itemId: CHEST_CONTENTS[idx] || 'coin', mesh:grp, lid, opened:false, anim:0 });
+}
+function makeItemMesh(itemId) {
+  const it = ITEMS[itemId];
+  const grp = new THREE.Group();
+  let m;
+  if (it.kind==='key') {
+    const col = itemId==='ironKey'?0x8b8f99: itemId==='silverKey'?0xd7dde8: itemId==='goldKey'?0xd8b23a: 0xb46be0;
+    m = new THREE.Mesh(new THREE.TorusGeometry(0.09,0.03,6,10), new THREE.MeshLambertMaterial({ color:col, emissive:col, emissiveIntensity:0.25 }));
+    const shaft = new THREE.Mesh(new THREE.BoxGeometry(0.04,0.2,0.04), m.material);
+    shaft.position.y = -0.14;
+    grp.add(m, shaft);
+  } else if (it.kind==='consume') {
+    const col = itemId==='herb'?0x4f9e4a: itemId==='potion'?0xc85a4a: itemId==='manaGem'?0x4a7ec8: 0xe8d38a;
+    m = new THREE.Mesh(new THREE.OctahedronGeometry(0.13), new THREE.MeshLambertMaterial({ color:col, emissive:col, emissiveIntensity:0.35 }));
+    grp.add(m);
+  } else if (it.kind==='treasure') {
+    m = new THREE.Mesh(new THREE.CylinderGeometry(0.11,0.11,0.03,12), new THREE.MeshLambertMaterial({ color:0xd8b23a, emissive:0x6a5210, emissiveIntensity:0.5 }));
+    grp.add(m);
+  } else if (it.kind==='lantern') {
+    m = new THREE.Mesh(new THREE.CylinderGeometry(0.09,0.11,0.2,8), new THREE.MeshLambertMaterial({ color:0xc8ccd8, emissive:0xffaa44, emissiveIntensity:0.4 }));
+    grp.add(m);
+  } else { // 装備
+    const col = it.kind==='weapon'?0xb9c2cf: it.kind==='shield'?0x7a5c33: it.kind==='armor'?0x6d747f: 0xd8b23a;
+    m = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.4, 0.06), new THREE.MeshLambertMaterial({ color:col, emissive:col, emissiveIntensity:0.15 }));
+    grp.add(m);
+  }
+  return grp;
+}
+function buildGroundItem(c, r, itemId, id) {
+  const grp = makeItemMesh(itemId);
+  grp.position.set(cx2w(c), 0.55, rz2w(r));
+  worldGroup.add(grp);
+  groundItems.push({ c, r, itemId, mesh:grp, taken:false, id });
+}
+// ================= 敵モデル =================
+function makeSkeleton(elite) {
+  const grp = new THREE.Group();
+  const boneMat = new THREE.MeshLambertMaterial({ color: elite?0xb9a98a:0xd8d2c2 });
+  const darkMat = new THREE.MeshLambertMaterial({ color:0x24211c });
+  const head = new THREE.Mesh(new THREE.BoxGeometry(0.26,0.3,0.26), boneMat);
+  head.position.y = 1.62;
+  const eyeL = new THREE.Mesh(new THREE.BoxGeometry(0.05,0.05,0.02), new THREE.MeshBasicMaterial({ color: elite?0xff3322:0xffaa22 }));
+  eyeL.position.set(-0.06,1.65,0.135);
+  const eyeR = eyeL.clone(); eyeR.position.x = 0.06;
+  const ribs = new THREE.Mesh(new THREE.BoxGeometry(0.4,0.5,0.22), boneMat);
+  ribs.position.y = 1.2;
+  const pelvis = new THREE.Mesh(new THREE.BoxGeometry(0.32,0.14,0.2), boneMat);
+  pelvis.position.y = 0.86;
+  const legL = new THREE.Mesh(new THREE.BoxGeometry(0.09,0.78,0.09), boneMat);
+  legL.position.set(-0.11,0.4,0);
+  const legR = legL.clone(); legR.position.x = 0.11;
+  const armL = new THREE.Mesh(new THREE.BoxGeometry(0.08,0.6,0.08), boneMat);
+  armL.position.set(-0.28,1.22,0);
+  const armR = new THREE.Group();
+  const armRm = new THREE.Mesh(new THREE.BoxGeometry(0.08,0.6,0.08), boneMat);
+  armRm.position.y = -0.25;
+  const sword = new THREE.Mesh(new THREE.BoxGeometry(0.05,0.75,0.1), darkMat);
+  sword.position.set(0,-0.75,0.12);
+  armR.add(armRm, sword);
+  armR.position.set(0.28,1.42,0);
+  grp.add(head, eyeL, eyeR, ribs, pelvis, legL, legR, armL, armR);
+  grp.userData.armR = armR; grp.userData.legs = [legL, legR];
+  if (elite) grp.scale.setScalar(1.12);
+  return grp;
+}
+function makeSlime() {
+  const grp = new THREE.Group();
+  const body = new THREE.Mesh(new THREE.SphereGeometry(0.42, 10, 8),
+    new THREE.MeshLambertMaterial({ color:0x3f7a46, emissive:0x1a3a1e, transparent:true, opacity:0.92 }));
+  body.scale.y = 0.7;
+  body.position.y = 0.3;
+  const core = new THREE.Mesh(new THREE.SphereGeometry(0.15, 8, 6),
+    new THREE.MeshLambertMaterial({ color:0x9fe08a, emissive:0x4a7a3a }));
+  core.position.y = 0.3;
+  grp.add(body, core);
+  grp.userData.body = body;
+  return grp;
+}
+function spawnEnemy(type, c, r, id) {
+  const elite = (type==='K') && (r>=16 || (r>=12 && c>=21));  // 深部の骸骨は強い
+  const mesh = type==='K' ? makeSkeleton(elite) : makeSlime();
+  mesh.position.set(cx2w(c), 0, rz2w(r));
+  worldGroup.add(mesh);
+  const st = type==='K'
+    ? (elite ? { hp:44, maxhp:44, atk:14, def:4, exp:30, speed:1.15 } : { hp:26, maxhp:26, atk:9, def:2, exp:14, speed:1.1 })
+    : { hp:14, maxhp:14, atk:5, def:0, exp:7, speed:0 };
+  enemies.push({ id, type, elite, mesh, ...st, x:cx2w(c), z:rz2w(r), state:'idle',
+    atkCd:0, hitFlash:0, dead:false, hopT:Math.random()*2, homeX:cx2w(c), homeZ:rz2w(r) });
+}
+// ================= マップ走査で配置 =================
+let startPos = { x: cx2w(1), z: rz2w(1) };
+{
+  let chestIdx = 0, gid = 0, eid = 0;
+  for (let r=0; r<ROWS; r++) for (let c=0; c<COLS; c++) {
+    const ch = cellAt(c,r);
+    if (ch==='P') startPos = { x:cx2w(c), z:rz2w(r) };
+    else if (isDoorChar(ch)) buildDoor(c,r,ch);
+    else if (ch==='C') buildChest(c,r,chestIdx++);
+    else if (GROUND_ITEM_CHARS[ch]) buildGroundItem(c,r,GROUND_ITEM_CHARS[ch],'g'+(gid++));
+    else if (ch==='K'||ch==='M') spawnEnemy(ch,c,r,'e'+(eid++));
+    else if (ch==='W') {
+      const ped = new THREE.Mesh(new THREE.CylinderGeometry(0.4,0.5,0.9,8), new THREE.MeshLambertMaterial({ color:0x55565e }));
+      ped.position.set(cx2w(c),0.45,rz2w(r));
+      const orb = new THREE.Mesh(new THREE.SphereGeometry(0.22,12,10),
+        new THREE.MeshLambertMaterial({ color:0xffe9a0, emissive:0xcf9d30, emissiveIntensity:1.2 }));
+      orb.position.set(cx2w(c),1.15,rz2w(r));
+      const gl = new THREE.PointLight(0xffd070, 1.8, 8, 1.6);
+      gl.position.copy(orb.position);
+      worldGroup.add(ped, orb, gl);
+      goalObj = { c, r, mesh:orb, taken:false };
+    }
+  }
+}
+// 通行可否（扉は開閉で変化）
+function walkable(c, r) {
+  const ch = cellAt(c,r);
+  if (ch==='#') return false;
+  if (isDoorChar(ch)) {
+    const d = doors.find(d => d.c===c && d.r===r);
+    return d ? d.open : true;
+  }
+  return true;
+}
+// 視線が通るか（グリッドDDA）
+function lineOfSight(x0, z0, x1, z1) {
+  const steps = Math.ceil(Math.hypot(x1-x0, z1-z0) / (CELL*0.4));
+  for (let i=1; i<steps; i++) {
+    const t = i/steps;
+    if (!walkable(w2c(x0+(x1-x0)*t), w2c(z0+(z1-z0)*t))) return false;
+  }
+  return true;
+}
+// ================= オーディオ（音楽＋効果音を全て生成） =================
+const AudioSys = {
+  ctx:null, master:null, musicGain:null, sfxGain:null, verb:null, verbGain:null,
+  musicOn:true, started:false, tension:0, tensionGain:null,
+  bpm:66, nextBarTime:0, bar:0, timer:null,
+};
+function audioInit() {
+  if (AudioSys.ctx) return;
+  const ctx = new (window.AudioContext || window.webkitAudioContext)();
+  AudioSys.ctx = ctx;
+  const master = ctx.createGain(); master.gain.value = 0.55; master.connect(ctx.destination);
+  // 残響（石造りの城）
+  const verb = ctx.createConvolver();
+  const len = ctx.sampleRate * 2.4;
+  const imp = ctx.createBuffer(2, len, ctx.sampleRate);
+  for (let ch=0; ch<2; ch++) {
+    const d = imp.getChannelData(ch);
+    for (let i=0; i<len; i++) d[i] = (Math.random()*2-1) * Math.pow(1-i/len, 2.6);
+  }
+  verb.buffer = imp;
+  const verbGain = ctx.createGain(); verbGain.gain.value = 0.55;
+  verb.connect(verbGain).connect(master);
+  const musicGain = ctx.createGain(); musicGain.gain.value = 0.85; musicGain.connect(master); musicGain.connect(verb);
+  const sfxGain = ctx.createGain(); sfxGain.gain.value = 1.0; sfxGain.connect(master); sfxGain.connect(verb);
+  const tensionGain = ctx.createGain(); tensionGain.gain.value = 0; tensionGain.connect(master);
+  Object.assign(AudioSys, { master, musicGain, sfxGain, verb, verbGain, tensionGain });
+}
+const NOTE = n => 440 * Math.pow(2, (n-69)/12); // MIDI -> Hz
+// KF風の物悲しい進行（ニ短調）: Dm / B♭ / Gm / A
+const CHORDS = [ [50,53,57], [46,50,53], [43,46,50], [45,49,52] ];
+const MELODY_PHRASES = [
+  [ [69,0,1.5],[65,2,1],[64,3,1] ],
+  [ [62,0,2],[65,2,1],[64,3,0.5],[62,3.5,0.5] ],
+  [ [69,0,1],[72,1,1.5],[69,2.5,0.5],[65,3,1] ],
+  [],
+];
+function tone(t, freq, dur, type, vol, dest, glideTo) {
+  const ctx = AudioSys.ctx;
+  const o = ctx.createOscillator(); o.type = type; o.frequency.setValueAtTime(freq, t);
+  if (glideTo) o.frequency.exponentialRampToValueAtTime(glideTo, t+dur);
+  const g = ctx.createGain();
+  g.gain.setValueAtTime(0, t);
+  g.gain.linearRampToValueAtTime(vol, t + Math.min(0.05, dur*0.2));
+  g.gain.setTargetAtTime(0, t + dur*0.75, dur*0.12);
+  o.connect(g).connect(dest);
+  o.start(t); o.stop(t + dur + 0.4);
+  return { o, g };
+}
+function padChord(t, notes, dur) {
+  const ctx = AudioSys.ctx;
+  for (const n of notes) {
+    for (const det of [-4, 3]) {
+      const o = ctx.createOscillator(); o.type='sawtooth';
+      o.frequency.value = NOTE(n); o.detune.value = det;
+      const f = ctx.createBiquadFilter(); f.type='lowpass'; f.frequency.value = 520; f.Q.value = 0.6;
+      const g = ctx.createGain();
+      g.gain.setValueAtTime(0, t);
+      g.gain.linearRampToValueAtTime(0.028, t + dur*0.35);
+      g.gain.setTargetAtTime(0, t + dur*0.8, dur*0.15);
+      o.connect(f).connect(g).connect(AudioSys.musicGain);
+      o.start(t); o.stop(t + dur + 0.5);
+    }
+  }
+}
+function bass(t, n, dur) {
+  tone(t, NOTE(n-24), dur, 'triangle', 0.16, AudioSys.musicGain);
+  tone(t, NOTE(n-36), dur, 'sine', 0.12, AudioSys.musicGain);
+}
+function bellNote(t, n, dur) {
+  const v = 0.075;
+  tone(t, NOTE(n), dur*1.4, 'triangle', v, AudioSys.musicGain);
+  tone(t, NOTE(n)*2.01, dur*0.7, 'sine', v*0.35, AudioSys.musicGain);
+}
+function timpani(t, vol) {
+  const ctx = AudioSys.ctx;
+  const o = ctx.createOscillator(); o.type='sine';
+  o.frequency.setValueAtTime(72, t);
+  o.frequency.exponentialRampToValueAtTime(38, t+0.4);
+  const g = ctx.createGain();
+  g.gain.setValueAtTime(vol, t);
+  g.gain.setTargetAtTime(0, t+0.05, 0.16);
+  o.connect(g).connect(AudioSys.musicGain);
+  o.start(t); o.stop(t+1);
+}
+function noiseBurst(t, dur, filterType, f0, f1, vol, dest) {
+  const ctx = AudioSys.ctx;
+  const len = Math.max(1, ctx.sampleRate * dur);
+  const buf = ctx.createBuffer(1, len, ctx.sampleRate);
+  const d = buf.getChannelData(0);
+  for (let i=0;i<len;i++) d[i] = Math.random()*2-1;
+  const src = ctx.createBufferSource(); src.buffer = buf;
+  const f = ctx.createBiquadFilter(); f.type = filterType;
+  f.frequency.setValueAtTime(f0, t);
+  if (f1) f.frequency.exponentialRampToValueAtTime(f1, t+dur);
+  const g = ctx.createGain();
+  g.gain.setValueAtTime(vol, t);
+  g.gain.setTargetAtTime(0, t + dur*0.6, dur*0.2);
+  src.connect(f).connect(g).connect(dest || AudioSys.sfxGain);
+  src.start(t); src.stop(t+dur+0.2);
+}
+function scheduleBar(t, bar) {
+  const beat = 60/AudioSys.bpm, barDur = beat*4;
+  const chord = CHORDS[Math.floor(bar/2) % 4];
+  if (bar % 2 === 0) { padChord(t, chord, barDur*2.05); bass(t, chord[0], barDur*2); }
+  if (bar % 4 === 0) timpani(t, 0.22);
+  if (bar % 8 === 6) timpani(t + beat*2, 0.14);
+  // 旋律（小節ごとにフレーズ）
+  const phrase = MELODY_PHRASES[(bar + Math.floor(bar/4)) % MELODY_PHRASES.length];
+  if (bar % 2 === 1) for (const [n, st, d] of phrase) bellNote(t + st*beat, n, d*beat);
+  // 緊張レイヤー（戦闘時）: 低い鼓動
+  if (AudioSys.tension > 0.05) {
+    for (let b=0; b<4; b++) {
+      const tt = t + b*beat;
+      const o = AudioSys.ctx.createOscillator(); o.type='sine';
+      o.frequency.setValueAtTime(55, tt);
+      o.frequency.exponentialRampToValueAtTime(40, tt+0.12);
+      const g = AudioSys.ctx.createGain();
+      g.gain.setValueAtTime(0.3 * AudioSys.tension, tt);
+      g.gain.setTargetAtTime(0, tt+0.03, 0.07);
+      o.connect(g).connect(AudioSys.tensionGain);
+      o.start(tt); o.stop(tt+0.5);
+    }
+  }
+}
+function musicStart() {
+  audioInit();
+  const ctx = AudioSys.ctx;
+  ctx.resume();
+  if (AudioSys.started) return;
+  AudioSys.started = true;
+  AudioSys.nextBarTime = ctx.currentTime + 0.2;
+  AudioSys.timer = setInterval(() => {
+    if (!AudioSys.musicOn) return;
+    const barDur = 60/AudioSys.bpm*4;
+    while (AudioSys.nextBarTime < ctx.currentTime + 0.6) {
+      scheduleBar(AudioSys.nextBarTime, AudioSys.bar);
+      AudioSys.nextBarTime += barDur;
+      AudioSys.bar++;
+    }
+    AudioSys.tensionGain.gain.setTargetAtTime(AudioSys.tension, ctx.currentTime, 0.8);
+  }, 220);
+}
+// 効果音
+const SFX = {
+  swing()  { const t=AudioSys.ctx.currentTime; noiseBurst(t, 0.18, 'bandpass', 900, 2600, 0.35); },
+  hit()    { const t=AudioSys.ctx.currentTime; noiseBurst(t, 0.12, 'lowpass', 700, 200, 0.5); tone(t, 130, 0.12, 'square', 0.12, AudioSys.sfxGain, 70); },
+  hurt()   { const t=AudioSys.ctx.currentTime; tone(t, 160, 0.3, 'sawtooth', 0.22, AudioSys.sfxGain, 60); noiseBurst(t,0.2,'lowpass',400,150,0.3); },
+  pickup() { const t=AudioSys.ctx.currentTime; bellNote(t, 74, 0.3); bellNote(t+0.12, 81, 0.5); },
+  chest()  { const t=AudioSys.ctx.currentTime; noiseBurst(t, 0.5, 'lowpass', 300, 900, 0.25); bellNote(t+0.4, 69, 0.4); bellNote(t+0.55, 76, 0.6); },
+  door()   { const t=AudioSys.ctx.currentTime; noiseBurst(t, 0.8, 'lowpass', 220, 90, 0.5); },
+  locked() { const t=AudioSys.ctx.currentTime; tone(t, 90, 0.15, 'square', 0.25, AudioSys.sfxGain); tone(t+0.18, 80, 0.2, 'square', 0.2, AudioSys.sfxGain); },
+  levelup(){ const t=AudioSys.ctx.currentTime; [62,65,69,74].forEach((n,i)=>bellNote(t+i*0.13, n, 0.5)); },
+  fire()   { const t=AudioSys.ctx.currentTime; noiseBurst(t, 0.4, 'bandpass', 400, 1800, 0.3); tone(t, 220, 0.35, 'sawtooth', 0.15, AudioSys.sfxGain, 90); },
+  die()    { const t=AudioSys.ctx.currentTime; tone(t, 220, 0.5, 'sawtooth', 0.18, AudioSys.sfxGain, 55); noiseBurst(t,0.4,'lowpass',600,120,0.3); },
+  heal()   { const t=AudioSys.ctx.currentTime; bellNote(t, 69, 0.3); bellNote(t+0.1, 73, 0.45); },
+  clear()  { const t=AudioSys.ctx.currentTime; [[62,0],[66,0.15],[69,0.3],[74,0.5],[78,0.7],[81,0.9]].forEach(([n,d])=>bellNote(t+d, n, 0.9)); },
+};
+// ================= プレイヤー状態 =================
+const player = {
+  lv:1, hp:30, maxhp:30, mp:12, maxmp:12, exp:0,
+  baseAtk:4,
+  equip:{ weapon:'oldSword', shield:null, armor:null, ring:null, ring2:null, lantern:false },
+  inv:{ herb:0, potion:0, manaGem:0, elixir:0, coin:0 },
+  keys:{}, // ironKey:true など
+  dead:false, cleared:false,
+  atkCd:0, magicCd:0, hurtCd:0,
+};
+const expNext = lv => Math.floor(18 * Math.pow(1.45, lv-1));
+const playerAtk = () => player.baseAtk + (ITEMS[player.equip.weapon]?.atk||0) + (player.equip.ring?3:0);
+const playerDef = () => (ITEMS[player.equip.shield]?.def||0) + (ITEMS[player.equip.armor]?.def||0) + (player.equip.ring2?3:0);
+
+// ================= セーブ =================
+const SAVE_KEY = 'kiri_no_kojo_v1';
+function saveGame() {
+  try {
+    const data = {
+      p:{ lv:player.lv, hp:player.hp, maxhp:player.maxhp, mp:player.mp, maxmp:player.maxmp,
+          exp:player.exp, equip:player.equip, inv:player.inv, keys:player.keys, cleared:player.cleared },
+      pos:{ x:rig.position.x, z:rig.position.z, ry:rig.rotation.y },
+      doors: doors.filter(d=>d.open).map(d=>d.c+','+d.r),
+      chests: chests.filter(cst=>cst.opened).map(cst=>cst.id),
+      ground: groundItems.filter(g=>g.taken).map(g=>g.id),
+      dead: enemies.filter(e=>e.dead).map(e=>e.id),
+      goal: goalObj ? goalObj.taken : false,
+    };
+    localStorage.setItem(SAVE_KEY, JSON.stringify(data));
+  } catch(e) {}
+}
+function loadGame() {
+  try {
+    const raw = localStorage.getItem(SAVE_KEY);
+    if (!raw) return false;
+    const d = JSON.parse(raw);
+    Object.assign(player, d.p);
+    player.inv = Object.assign({ herb:0,potion:0,manaGem:0,elixir:0,coin:0 }, d.p.inv);
+    rig.position.x = d.pos.x; rig.position.z = d.pos.z; rig.rotation.y = d.pos.ry || 0;
+    for (const key of d.doors||[]) {
+      const [c,r] = key.split(',').map(Number);
+      const dr = doors.find(v=>v.c===c&&v.r===r);
+      if (dr) { dr.open = true; dr.anim = 1; dr.mesh.position.y = WALL_H*0.46 - WALL_H*0.88; }
+    }
+    for (const id of d.chests||[]) {
+      const cst = chests.find(v=>v.id===id);
+      if (cst) { cst.opened = true; cst.anim = 1; cst.lid.rotation.x = -1.9; }
+    }
+    for (const id of d.ground||[]) {
+      const g = groundItems.find(v=>v.id===id);
+      if (g) { g.taken = true; g.mesh.visible = false; }
+    }
+    for (const id of d.dead||[]) {
+      const e = enemies.find(v=>v.id===id);
+      if (e) { e.dead = true; e.mesh.visible = false; }
+    }
+    if (d.goal && goalObj) { goalObj.taken = true; goalObj.mesh.visible = false; }
+    return true;
+  } catch(e) { return false; }
+}
+function hasSave() { try { return !!localStorage.getItem(SAVE_KEY); } catch(e) { return false; } }
+// ================= HUD・メッセージ =================
+const $ = id => document.getElementById(id);
+const msgLog = [];
+let hudDirty = true;
+function showMsg(text) {
+  msgLog.push(text);
+  if (msgLog.length > 3) msgLog.shift();
+  const box = $('msgs');
+  const div = document.createElement('div');
+  div.textContent = text;
+  box.appendChild(div);
+  setTimeout(() => { div.style.transition='opacity 1s'; div.style.opacity='0'; }, 2600);
+  setTimeout(() => div.remove(), 3700);
+  hudDirty = true;
+}
+function updateDomHud() {
+  $('lv').textContent = player.lv;
+  $('hpTxt').textContent = `HP ${Math.ceil(player.hp)}/${player.maxhp}　MP ${Math.floor(player.mp)}/${player.maxmp}`;
+  $('hpBar').firstElementChild.style.transform = `scaleX(${Math.max(0,player.hp/player.maxhp)})`;
+  $('mpBar').firstElementChild.style.transform = `scaleX(${Math.max(0,player.mp/player.maxmp)})`;
+  $('xpBar').firstElementChild.style.transform = `scaleX(${Math.min(1,player.exp/expNext(player.lv))})`;
+  const eq = player.equip;
+  $('eq').textContent = `剣:${ITEMS[eq.weapon].name}　盾:${eq.shield?ITEMS[eq.shield].name:'なし'}　鎧:${eq.armor?ITEMS[eq.armor].name:'なし'}`
+    + (eq.ring?'　力輪':'') + (eq.ring2?'　守輪':'') + (eq.lantern?'　燈':'');
+  const keys = Object.keys(player.keys).filter(k=>player.keys[k]).map(k=>ITEMS[k].name).join('・');
+  $('items').textContent = `薬草×${player.inv.herb}　回復薬×${player.inv.potion}　結晶×${player.inv.manaGem}　ｴﾘｸｻｰ×${player.inv.elixir}　金貨×${player.inv.coin}` + (keys?`　鍵:${keys}`:'');
+}
+// VR手首パネル
+const wristCanvas = document.createElement('canvas');
+wristCanvas.width = 512; wristCanvas.height = 320;
+const wristTex = new THREE.CanvasTexture(wristCanvas);
+const wristPanel = new THREE.Mesh(
+  new THREE.PlaneGeometry(0.24, 0.15),
+  new THREE.MeshBasicMaterial({ map:wristTex, transparent:true, opacity:0.92 })
+);
+wristPanel.visible = false;
+let promptText = '';
+function drawWrist() {
+  const g = wristCanvas.getContext('2d');
+  g.clearRect(0,0,512,320);
+  g.fillStyle = 'rgba(12,12,16,0.82)';
+  g.fillRect(0,0,512,320);
+  g.strokeStyle = '#6a5f3f'; g.lineWidth = 3; g.strokeRect(2,2,508,316);
+  g.fillStyle = '#d8cfae'; g.font = '26px serif';
+  g.fillText(`Lv ${player.lv}`, 18, 36);
+  g.font = '20px serif';
+  g.fillText(`HP ${Math.ceil(player.hp)}/${player.maxhp}`, 110, 34);
+  g.fillText(`MP ${Math.floor(player.mp)}/${player.maxmp}`, 290, 34);
+  const bar = (y, ratio, col) => {
+    g.fillStyle = '#1a1a20'; g.fillRect(18, y, 476, 18);
+    g.fillStyle = col; g.fillRect(18, y, 476*Math.max(0,Math.min(1,ratio)), 18);
+  };
+  bar(48, player.hp/player.maxhp, '#a03a28');
+  bar(74, player.mp/player.maxmp, '#35578a');
+  bar(100, player.exp/expNext(player.lv), '#7a6e38');
+  g.fillStyle = '#a9a28a'; g.font = '17px serif';
+  g.fillText(`剣:${ITEMS[player.equip.weapon].name}　薬草×${player.inv.herb}　回復薬×${player.inv.potion}　結晶×${player.inv.manaGem}`, 18, 146);
+  const keys = Object.keys(player.keys).filter(k=>player.keys[k]).map(k=>ITEMS[k].name).join('・');
+  if (keys) g.fillText(`鍵：${keys}`, 18, 172);
+  g.fillStyle = '#e2d9bc'; g.font = '19px serif';
+  msgLog.slice(-3).forEach((m,i) => g.fillText(m, 18, 208 + i*28));
+  if (promptText) { g.fillStyle = '#ffe9a0'; g.fillText('Ａ： ' + promptText, 18, 300); }
+  wristTex.needsUpdate = true;
+}
+// ================= 剣・手 =================
+function makeSwordMesh(itemId) {
+  const grp = new THREE.Group();
+  const bladeCol = itemId==='moonSword' ? 0xcfe0ff : itemId==='knightSword' ? 0xc8ccd4 : 0x9a9da4;
+  const blade = new THREE.Mesh(new THREE.BoxGeometry(0.035, 0.62, 0.012),
+    new THREE.MeshLambertMaterial({ color:bladeCol, emissive: itemId==='moonSword'?0x3a5aaa:0x111111 }));
+  blade.position.y = 0.42;
+  const guard = new THREE.Mesh(new THREE.BoxGeometry(0.14, 0.03, 0.03), new THREE.MeshLambertMaterial({ color:0x6a5a2a }));
+  guard.position.y = 0.1;
+  const grip = new THREE.Mesh(new THREE.CylinderGeometry(0.018,0.02,0.16,6), new THREE.MeshLambertMaterial({ color:0x3a2a1a }));
+  grp.add(blade, guard, grip);
+  return grp;
+}
+let swordMesh = makeSwordMesh('oldSword');
+const swordHolder = new THREE.Group();
+swordHolder.add(swordMesh);
+function refreshSword() {
+  swordHolder.remove(swordMesh);
+  swordMesh = makeSwordMesh(player.equip.weapon);
+  swordHolder.add(swordMesh);
+}
+// デスクトップ: カメラに装着
+const deskSword = new THREE.Group();
+deskSword.position.set(0.28, -0.3, -0.55);
+deskSword.rotation.set(-0.4, 0.15, -0.25);
+camera.add(deskSword);
+deskSword.add(swordHolder);
+let swingT = -1; // 0..1 振りアニメ
+// ================= ビネット（酔い軽減）＋被弾フラッシュ =================
+function radialTexture(inner, outer) {
+  const cv = document.createElement('canvas'); cv.width=cv.height=256;
+  const g = cv.getContext('2d');
+  const gr = g.createRadialGradient(128,128,40, 128,128,128);
+  gr.addColorStop(0, inner); gr.addColorStop(1, outer);
+  g.fillStyle = gr; g.fillRect(0,0,256,256);
+  return new THREE.CanvasTexture(cv);
+}
+const vignette = new THREE.Mesh(new THREE.PlaneGeometry(1.6,1.6),
+  new THREE.MeshBasicMaterial({ map:radialTexture('rgba(0,0,0,0)','rgba(0,0,0,0.96)'), transparent:true, opacity:0, depthTest:false, depthWrite:false }));
+vignette.position.z = -0.45;
+vignette.renderOrder = 999;
+camera.add(vignette);
+const vrDmg = new THREE.Mesh(new THREE.PlaneGeometry(1.6,1.6),
+  new THREE.MeshBasicMaterial({ map:radialTexture('rgba(150,15,5,0)','rgba(150,15,5,0.8)'), transparent:true, opacity:0, depthTest:false, depthWrite:false }));
+vrDmg.position.z = -0.44;
+vrDmg.renderOrder = 1000;
+camera.add(vrDmg);
+let vrDmgT = 0;
+// ================= 入力（デスクトップ） =================
+let yaw = 0, pitch = 0, pointerLocked = false;
+const keysDown = {};
+addEventListener('keydown', e => {
+  keysDown[e.code] = true;
+  if (!gameActive) return;
+  if (e.code==='KeyE') tryInteract();
+  if (e.code==='KeyF') castFire();
+  if (e.code==='KeyQ') useConsume('herb');
+  if (e.code==='KeyR') useConsume('manaGem');
+});
+addEventListener('keyup', e => keysDown[e.code] = false);
+const canvas = renderer.domElement;
+canvas.addEventListener('click', () => {
+  if (!gameActive || renderer.xr.isPresenting) return;
+  if (!pointerLocked && !('ontouchstart' in window)) { canvas.requestPointerLock(); return; }
+  tryAttack();
+});
+document.addEventListener('pointerlockchange', () => pointerLocked = document.pointerLockElement === canvas);
+addEventListener('mousemove', e => {
+  if (!pointerLocked) return;
+  yaw -= e.movementX * 0.0021;
+  pitch -= e.movementY * 0.0021;
+  pitch = Math.max(-1.3, Math.min(1.3, pitch));
+});
+// ================= VRコントローラー =================
+const ctrlR = renderer.xr.getController(1);
+const ctrlL = renderer.xr.getController(0);
+rig.add(ctrlR); rig.add(ctrlL);
+// 見た目上の割当は handedness で毎フレーム解決する
+const hands = { left:null, right:null }; // inputSource参照
+const prevBtns = { left:[], right:[] };
+const vrSwordPivot = new THREE.Group();
+vrSwordPivot.rotation.x = -Math.PI/2 + 0.3;
+let vrSwordAttached = false;
+// 手首パネルは左手に
+let wristAttached = false;
+let prevRPos = null, swingSpeed = 0;
+// ================= ゲーム状態遷移 =================
+let gameActive = false;
+let snapReady = true;
+let respawnT = 0;
+const projectiles = [];
+// ================= 移動＆衝突 =================
+const PRADIUS = 0.42;
+function collideMove(nx, nz) {
+  const x0 = rig.position.x, z0 = rig.position.z;
+  // X軸
+  let x = nx;
+  if (!walkable(w2c(nx + Math.sign(nx-x0||1)*PRADIUS), w2c(z0 - PRADIUS)) ||
+      !walkable(w2c(nx + Math.sign(nx-x0||1)*PRADIUS), w2c(z0 + PRADIUS))) x = x0;
+  // より単純に: 4隅チェック
+  if (!(walkable(w2c(x-PRADIUS), w2c(z0-PRADIUS)) && walkable(w2c(x+PRADIUS), w2c(z0-PRADIUS)) &&
+        walkable(w2c(x-PRADIUS), w2c(z0+PRADIUS)) && walkable(w2c(x+PRADIUS), w2c(z0+PRADIUS)))) x = x0;
+  let z = nz;
+  if (!(walkable(w2c(x-PRADIUS), w2c(z-PRADIUS)) && walkable(w2c(x+PRADIUS), w2c(z-PRADIUS)) &&
+        walkable(w2c(x-PRADIUS), w2c(z+PRADIUS)) && walkable(w2c(x+PRADIUS), w2c(z+PRADIUS)))) z = z0;
+  rig.position.x = x; rig.position.z = z;
+}
+let isMoving = false;
+function desktopMove(dt) {
+  camera.rotation.y = yaw;
+  camera.rotation.x = pitch;
+  const speed = (keysDown['ShiftLeft']||keysDown['ShiftRight']) ? 3.3 : 1.9;
+  const f = new THREE.Vector3(-Math.sin(yaw),0,-Math.cos(yaw));
+  const rgt = new THREE.Vector3(Math.cos(yaw),0,-Math.sin(yaw));
+  const mv = new THREE.Vector3();
+  if (keysDown['KeyW']||keysDown['ArrowUp']) mv.add(f);
+  if (keysDown['KeyS']||keysDown['ArrowDown']) mv.sub(f);
+  if (keysDown['KeyA']||keysDown['ArrowLeft']) mv.sub(rgt);
+  if (keysDown['KeyD']||keysDown['ArrowRight']) mv.add(rgt);
+  isMoving = mv.lengthSq() > 0;
+  if (isMoving) {
+    mv.normalize();
+    collideMove(rig.position.x + mv.x*speed*dt, rig.position.z + mv.z*speed*dt);
+  }
+}
+function vrMove(dt) {
+  const session = renderer.xr.getSession();
+  if (!session) return;
+  isMoving = false;
+  hands.left = null; hands.right = null;
+  for (const src of session.inputSources) {
+    if (src.handedness==='left') hands.left = src;
+    if (src.handedness==='right') hands.right = src;
+  }
+  // 左スティック: 移動（頭の向き基準・ゆっくり）
+  const L = hands.left, R = hands.right;
+  if (L && L.gamepad) {
+    const ax = L.gamepad.axes;
+    const sx = ax[2]!==undefined?ax[2]:(ax[0]||0), sy = ax[3]!==undefined?ax[3]:(ax[1]||0);
+    if (Math.abs(sx)>0.15 || Math.abs(sy)>0.15) {
+      const q = new THREE.Quaternion();
+      renderer.xr.getCamera().getWorldQuaternion(q);
+      const f = new THREE.Vector3(0,0,-1).applyQuaternion(q); f.y=0; f.normalize();
+      const rgt = new THREE.Vector3(1,0,0).applyQuaternion(q); rgt.y=0; rgt.normalize();
+      const spd = 1.7;
+      const dx = (f.x*(-sy) + rgt.x*sx) * spd * dt;
+      const dz = (f.z*(-sy) + rgt.z*sx) * spd * dt;
+      collideMove(rig.position.x+dx, rig.position.z+dz);
+      isMoving = true;
+    }
+  }
+  // 右スティック: スナップターン
+  if (R && R.gamepad) {
+    const ax = R.gamepad.axes;
+    const sx = ax[2]!==undefined?ax[2]:(ax[0]||0);
+    if (Math.abs(sx)>0.6 && snapReady) {
+      rig.rotation.y -= Math.sign(sx)*Math.PI/6;
+      snapReady = false;
+      vignetteBoost = 0.5;
+    } else if (Math.abs(sx)<0.3) snapReady = true;
+  }
+  // ボタン
+  const edge = (side, i) => {
+    const src = hands[side];
+    if (!src || !src.gamepad) return false;
+    const now = !!(src.gamepad.buttons[i] && src.gamepad.buttons[i].pressed);
+    const was = prevBtns[side][i] || false;
+    prevBtns[side][i] = now;
+    return now && !was;
+  };
+  if (edge('right',0)) tryAttack();          // 右トリガー: 剣
+  if (edge('left',0)) castFire();            // 左トリガー: 魔法
+  if (edge('right',4)) tryInteract();        // A: 調べる
+  if (edge('right',5)) useConsume('herb');   // B: 薬草
+  if (edge('left',4)) useConsume('manaGem'); // X: 結晶
+  if (edge('left',5)) useConsume('potion');  // Y: 回復薬
+  // 物理スイング検出（右手を素早く振ると斬撃）
+  const rp = new THREE.Vector3();
+  ctrlR.getWorldPosition(rp);
+  if (prevRPos) {
+    swingSpeed = rp.distanceTo(prevRPos) / Math.max(dt, 0.001);
+    if (swingSpeed > 2.6) tryAttack();
+    prevRPos.copy(rp);
+  } else prevRPos = rp.clone();
+}
+// ================= 戦闘 =================
+let vignetteBoost = 0;
+const vary = v => v * (0.85 + Math.random()*0.3);
+function rumble(side, val, ms) {
+  try {
+    const gp = hands[side] && hands[side].gamepad;
+    if (gp && gp.hapticActuators && gp.hapticActuators[0]) gp.hapticActuators[0].pulse(val, ms);
+  } catch(e) {}
+}
+function attackDir() {
+  const q = new THREE.Quaternion();
+  if (renderer.xr.isPresenting) renderer.xr.getCamera().getWorldQuaternion(q);
+  else camera.getWorldQuaternion(q);
+  const d = new THREE.Vector3(0,0,-1).applyQuaternion(q);
+  d.y = 0; d.normalize();
+  return d;
+}
+function tryAttack() {
+  if (!gameActive || player.dead || player.atkCd > 0) return;
+  player.atkCd = 0.55;
+  swingT = 0;
+  SFX.swing();
+  rumble('right', 0.35, 60);
+  const dir = attackDir();
+  const px = rig.position.x, pz = rig.position.z;
+  for (const e of enemies) {
+    if (e.dead) continue;
+    const dx = e.x - px, dz = e.z - pz;
+    const dist = Math.hypot(dx, dz);
+    if (dist > 2.35) continue;
+    const dot = (dx*dir.x + dz*dir.z) / (dist || 1);
+    if (dot < 0.45) continue;
+    damageEnemy(e, vary(playerAtk()) - e.def, dx/dist, dz/dist);
+  }
+}
+function damageEnemy(e, dmg, kx, kz) {
+  dmg = Math.max(1, Math.round(dmg));
+  e.hp -= dmg;
+  e.hitFlash = 0.18;
+  SFX.hit();
+  rumble('right', 0.8, 90);
+  // ノックバック
+  if (kx !== undefined) {
+    const nx = e.x + kx*0.4, nz = e.z + kz*0.4;
+    if (walkable(w2c(nx), w2c(nz))) { e.x = nx; e.z = nz; }
+  }
+  if (e.hp <= 0) {
+    e.dead = true;
+    SFX.die();
+    showMsg(`${e.type==='K' ? (e.elite?'骸骨の重兵':'骸骨兵') : '粘塊'}を倒した（経験値 ${e.exp}）`);
+    gainExp(e.exp);
+    saveGame();
+  }
+}
+function gainExp(n) {
+  player.exp += n;
+  while (player.exp >= expNext(player.lv)) {
+    player.exp -= expNext(player.lv);
+    player.lv++;
+    player.maxhp += 9; player.maxmp += 4; player.baseAtk += 2;
+    player.hp = player.maxhp; player.mp = player.maxmp;
+    SFX.levelup();
+    showMsg(`レベル ${player.lv} に上がった！　力が満ちていく`);
+  }
+  hudDirty = true;
+}
+function hurtPlayer(atk) {
+  if (player.dead || player.cleared) return;
+  const dmg = Math.max(1, Math.round(vary(atk) - playerDef()*0.8));
+  player.hp -= dmg;
+  SFX.hurt();
+  rumble('left', 0.9, 120); rumble('right', 0.9, 120);
+  $('dmgFlash').style.opacity = '1';
+  setTimeout(() => $('dmgFlash').style.opacity = '0', 150);
+  vrDmgT = 1;
+  hudDirty = true;
+  if (player.hp <= 0) {
+    player.hp = 0;
+    player.dead = true;
+    respawnT = 3.2;
+    showMsg('力尽きた……　しかし城の霧が、再び入口へと運んでいく');
+  }
+}
+// ================= 魔法 =================
+function castFire() {
+  if (!gameActive || player.dead || player.magicCd > 0) return;
+  if (player.mp < 4) { showMsg('MPが足りない'); return; }
+  player.mp -= 4;
+  player.magicCd = 0.7;
+  SFX.fire();
+  rumble('left', 0.5, 80);
+  const dir = attackDir();
+  const mesh = new THREE.Mesh(new THREE.SphereGeometry(0.12, 8, 6),
+    new THREE.MeshBasicMaterial({ color:0xffa030 }));
+  const light = new THREE.PointLight(0xff8830, 2.2, 7, 1.6);
+  mesh.position.set(rig.position.x + dir.x*0.5, 1.35, rig.position.z + dir.z*0.5);
+  light.position.copy(mesh.position);
+  scene.add(mesh); scene.add(light);
+  projectiles.push({ mesh, light, vx:dir.x*9, vz:dir.z*9, life:2.2 });
+  hudDirty = true;
+}
+function updateProjectiles(dt) {
+  for (let i=projectiles.length-1; i>=0; i--) {
+    const p = projectiles[i];
+    p.life -= dt;
+    p.mesh.position.x += p.vx*dt;
+    p.mesh.position.z += p.vz*dt;
+    p.light.position.copy(p.mesh.position);
+    p.light.intensity = 2.2 * (0.7 + 0.3*Math.sin(p.life*40));
+    let kill = p.life <= 0 || !walkable(w2c(p.mesh.position.x), w2c(p.mesh.position.z));
+    if (!kill) for (const e of enemies) {
+      if (e.dead) continue;
+      if (Math.hypot(e.x - p.mesh.position.x, e.z - p.mesh.position.z) < 0.75) {
+        damageEnemy(e, vary(14 + player.lv*2) - e.def*0.5, p.vx/9, p.vz/9);
+        kill = true; break;
+      }
+    }
+    if (kill) { scene.remove(p.mesh); scene.remove(p.light); projectiles.splice(i,1); }
+  }
+}
+// ================= 敵AI =================
+function moveEnemy(e, dx, dz) {
+  const nx = e.x + dx, nz = e.z + dz, R = 0.38;
+  if (walkable(w2c(nx-R),w2c(e.z-R)) && walkable(w2c(nx+R),w2c(e.z-R)) &&
+      walkable(w2c(nx-R),w2c(e.z+R)) && walkable(w2c(nx+R),w2c(e.z+R))) e.x = nx;
+  if (walkable(w2c(e.x-R),w2c(nz-R)) && walkable(w2c(e.x+R),w2c(nz-R)) &&
+      walkable(w2c(e.x-R),w2c(nz+R)) && walkable(w2c(e.x+R),w2c(nz+R))) e.z = nz;
+}
+let anyChasing = false;
+function updateEnemies(dt, t) {
+  anyChasing = false;
+  const px = rig.position.x, pz = rig.position.z;
+  for (const e of enemies) {
+    if (e.dead) { if (e.mesh.visible) { e.mesh.scale.y *= 0.9; if (e.mesh.scale.y < 0.05) e.mesh.visible = false; } continue; }
+    const dx = px - e.x, dz = pz - e.z;
+    const dist = Math.hypot(dx, dz);
+    e.atkCd = Math.max(0, e.atkCd - dt);
+    if (e.hitFlash > 0) e.hitFlash -= dt;
+    // 集敵判定
+    if (e.state === 'idle') {
+      if (dist < 8.5 && !player.dead && lineOfSight(e.x, e.z, px, pz)) e.state = 'chase';
+    } else if (dist > 13) e.state = 'idle';
+    if (e.state === 'chase') anyChasing = true;
+    if (e.type === 'K') {
+      // 骸骨兵: 歩いて追跡、近づくと斬りつける
+      if (e.state === 'chase' && !player.dead) {
+        e.mesh.rotation.y = Math.atan2(dx, dz);
+        if (dist > 1.6) {
+          moveEnemy(e, dx/dist*e.speed*dt, dz/dist*e.speed*dt);
+          const sw = Math.sin(t*7 + e.x);
+          e.mesh.userData.legs[0].rotation.x = sw*0.5;
+          e.mesh.userData.legs[1].rotation.x = -sw*0.5;
+        } else if (e.atkCd <= 0) {
+          e.atkCd = 1.5;
+          e.swingAnim = 0.4;
+          hurtPlayer(e.atk);
+        }
+      }
+      if (e.swingAnim > 0) {
+        e.swingAnim -= dt;
+        e.mesh.userData.armR.rotation.x = -2.2 * Math.sin((0.4 - e.swingAnim)/0.4 * Math.PI);
+      }
+    } else {
+      // 粘塊: 跳ねて近づく
+      e.hopT -= dt;
+      if (e.hopT <= 0) {
+        e.hopT = 1.5 + Math.random()*0.7;
+        if (e.state === 'chase' && !player.dead) {
+          e.hopVx = dx/dist * 1.9; e.hopVz = dz/dist * 1.9;
+        } else { const a = Math.random()*Math.PI*2; e.hopVx = Math.cos(a)*0.5; e.hopVz = Math.sin(a)*0.5; }
+        e.hopAir = 0.55;
+      }
+      if (e.hopAir > 0) {
+        e.hopAir -= dt;
+        moveEnemy(e, e.hopVx*dt, e.hopVz*dt);
+        e.mesh.position.y = Math.sin((0.55-e.hopAir)/0.55*Math.PI) * 0.5;
+      } else {
+        e.mesh.position.y = 0;
+        e.mesh.userData.body.scale.y = 0.7 + Math.sin(t*3+e.x)*0.05;
+      }
+      if (dist < 1.05 && e.atkCd <= 0 && !player.dead) { e.atkCd = 1.2; hurtPlayer(e.atk); }
+    }
+    e.mesh.position.x = e.x;
+    e.mesh.position.z = e.z;
+    // 被弾フラッシュ
+    e.mesh.traverse ? null : 0;
+    const flash = e.hitFlash > 0;
+    e.mesh.children.forEach(m => {
+      if (m.material && m.material.emissive !== undefined) {
+        if (m.material.userData === undefined) m.material.userData = {};
+        if (flash && !m.material.userData.f) { m.material.userData.f = true; m.material.emissiveIntensity = 2; m.material.emissive = new THREE.Color(0x992211); }
+        else if (!flash && m.material.userData.f) { m.material.userData.f = false; m.material.emissiveIntensity = 1; m.material.emissive = new THREE.Color(0x000000); }
+      }
+    });
+  }
+}
+// ================= 調べる（扉・宝箱・秘宝） =================
+function nearestInteractable() {
+  const px = rig.position.x, pz = rig.position.z;
+  let best = null, bestD = 2.4;
+  for (const d of doors) {
+    if (d.open) continue;
+    const dist = Math.hypot(cx2w(d.c)-px, rz2w(d.r)-pz);
+    if (dist < bestD) { bestD = dist; best = { kind:'door', obj:d }; }
+  }
+  for (const cst of chests) {
+    if (cst.opened) continue;
+    const dist = Math.hypot(cx2w(cst.c)-px, rz2w(cst.r)-pz);
+    if (dist < bestD) { bestD = dist; best = { kind:'chest', obj:cst }; }
+  }
+  if (goalObj && !goalObj.taken) {
+    const dist = Math.hypot(cx2w(goalObj.c)-px, rz2w(goalObj.r)-pz);
+    if (dist < bestD) { bestD = dist; best = { kind:'goal', obj:goalObj }; }
+  }
+  return best;
+}
+function tryInteract() {
+  if (!gameActive || player.dead) return;
+  const tgt = nearestInteractable();
+  if (!tgt) return;
+  if (tgt.kind === 'door') {
+    const d = tgt.obj;
+    if (d.ch === 'D') { d.open = true; SFX.door(); showMsg('木の扉が軋みながら開いた'); }
+    else {
+      const need = DOOR_KEYS[d.ch];
+      if (player.keys[need]) { d.open = true; SFX.door(); showMsg(`${ITEMS[need].name}を使った——${DOOR_NAMES[d.ch]}が重々しく開く`); }
+      else { SFX.locked(); showMsg(`鍵がかかっている。${ITEMS[need].name}が必要だ`); return; }
+    }
+    saveGame();
+  } else if (tgt.kind === 'chest') {
+    const cst = tgt.obj;
+    cst.opened = true;
+    SFX.chest();
+    giveItem(cst.itemId);
+    saveGame();
+  } else if (tgt.kind === 'goal') {
+    goalObj.taken = true;
+    goalObj.mesh.visible = false;
+    player.cleared = true;
+    SFX.clear();
+    showMsg('王家の秘宝を手にした——長い探索は終わりを告げた');
+    saveGame();
+    setTimeout(showClear, 2200);
+  }
+  hudDirty = true;
+}
+function giveItem(itemId) {
+  const it = ITEMS[itemId];
+  SFX.pickup();
+  const val = { weapon:'atk', shield:'def', armor:'def' };
+  if (it.kind === 'weapon' || it.kind === 'shield' || it.kind === 'armor') {
+    const slot = it.kind === 'weapon' ? 'weapon' : it.kind;
+    const cur = player.equip[slot];
+    const better = !cur || (it[val[it.kind]]||0) > (ITEMS[cur][val[it.kind]]||0);
+    if (better) {
+      player.equip[slot] = itemId;
+      if (slot === 'weapon') refreshSword();
+      showMsg(`${it.name}を手に入れ、身につけた`);
+    } else showMsg(`${it.name}を手に入れた（今の装備の方が強い）`);
+  } else if (it.kind === 'ring')  { player.equip.ring = itemId;  showMsg(`${it.name}を嵌めた——腕に力がみなぎる`); }
+  else if (it.kind === 'ring2')   { player.equip.ring2 = itemId; showMsg(`${it.name}を嵌めた——身体が守られている`); }
+  else if (it.kind === 'lantern') {
+    player.equip.lantern = true;
+    lanternLight.intensity = 3.8; lanternLight.distance = 16;
+    showMsg(`${it.name}を掲げた——あたりが明るくなった`);
+  }
+  else if (it.kind === 'consume') { player.inv[itemId]++; showMsg(`${it.name}を手に入れた`); }
+  else if (it.kind === 'key')     { player.keys[itemId] = true; showMsg(`${it.name}を手に入れた！`); }
+  else if (it.kind === 'treasure'){ player.inv.coin++; showMsg(`${it.name}を手に入れた`); }
+  hudDirty = true;
+}
+function useConsume(type) {
+  if (!gameActive || player.dead) return;
+  if (player.inv[type] <= 0) { showMsg(`${ITEMS[type].name}を持っていない`); return; }
+  const it = ITEMS[type];
+  if (it.heal) {
+    if (player.hp >= player.maxhp) { showMsg('HPは満タンだ'); return; }
+    player.hp = Math.min(player.maxhp, player.hp + it.heal);
+  } else if (it.mana) {
+    if (player.mp >= player.maxmp) { showMsg('MPは満タンだ'); return; }
+    player.mp = Math.min(player.maxmp, player.mp + it.mana);
+  } else if (it.full) { player.hp = player.maxhp; player.mp = player.maxmp; }
+  player.inv[type]--;
+  SFX.heal();
+  showMsg(`${it.name}を使った`);
+  hudDirty = true;
+}
+// ================= 開始・終了処理 =================
+const overlay = $('overlay');
+function enterWorld() {
+  overlay.classList.add('hidden');
+  $('hud').style.display = 'block';
+  $('msgs').style.display = 'block';
+  $('soundBtn').style.display = 'block';
+  if (!renderer.xr.isPresenting) { $('cross').style.display='block'; $('help').style.display='block'; }
+  gameActive = true;
+  musicStart();
+  hudDirty = true;
+}
+function showClear() {
+  gameActive = false;
+  document.exitPointerLock && document.exitPointerLock();
+  overlay.classList.remove('hidden');
+  overlay.innerHTML = `
+    <h1>探 索 完 了</h1>
+    <div class="sub">— THE ROYAL RELIC IS FOUND —</div>
+    <p>骸骨の兵を退け、三つの鍵と紋章を集め、あなたは玉座の間に眠る王家の秘宝を手にした。<br>
+    霧の古城に、静かな夜明けが訪れる。</p>
+    <p>最終レベル：${player.lv}　／　集めた古代金貨：${player.inv.coin}枚</p>
+    <button class="btn" onclick="localStorage.removeItem('${SAVE_KEY}'); location.reload()">もう一度 はじめから</button>`;
+}
+$('startBtn').addEventListener('click', () => {
+  try { localStorage.removeItem(SAVE_KEY); } catch(e) {}
+  enterWorld();
+  if (!('ontouchstart' in window)) canvas.requestPointerLock();
+});
+if (hasSave()) $('contBtn').style.display = 'inline-block';
+$('contBtn').addEventListener('click', () => {
+  loadGame();
+  yaw = rig.rotation.y; rig.rotation.y = 0; // デスクトップはカメラyawで管理
+  refreshSword();
+  if (player.equip.lantern) { lanternLight.intensity = 3.8; lanternLight.distance = 16; }
+  enterWorld();
+  if (!('ontouchstart' in window)) canvas.requestPointerLock();
+});
+$('soundBtn').addEventListener('click', () => {
+  AudioSys.musicOn = !AudioSys.musicOn;
+  if (AudioSys.musicGain) AudioSys.musicGain.gain.value = AudioSys.musicOn ? 0.85 : 0;
+  $('soundBtn').textContent = AudioSys.musicOn ? '♪ 音楽：ON' : '♪ 音楽：OFF';
+});
+// VR
+if (navigator.xr) {
+  navigator.xr.isSessionSupported('immersive-vr').then(ok => {
+    if (!ok) return;
+    $('vrBtn').disabled = false;
+    $('vrBtn').addEventListener('click', async () => {
+      try {
+        const session = await navigator.xr.requestSession('immersive-vr', { optionalFeatures:['local-floor','bounded-floor','hand-tracking'] });
+        session.addEventListener('end', () => {
+          overlay.classList.remove('hidden');
+          gameActive = false;
+          camera.add(deskSword); deskSword.add(swordHolder);
+        });
+        await renderer.xr.setSession(session);
+        if (hasSave() && !player.cleared && confirmContinue()) {} // つづきはボタンで選択済みの場合のみ
+        // 剣を右手に、パネルを左手に
+        if (!vrSwordAttached) {
+          deskSword.remove(swordHolder);
+          vrSwordPivot.add(swordHolder);
+          ctrlR.add(vrSwordPivot);
+          const wristPivot = new THREE.Group();
+          wristPivot.add(wristPanel);
+          wristPanel.position.set(0, 0.05, 0.12);
+          wristPanel.rotation.x = -0.9;
+          wristPanel.visible = true;
+          ctrlL.add(wristPivot);
+          vrSwordAttached = true;
+        }
+        enterWorld();
+      } catch(e) { console.warn('VR開始失敗:', e); }
+    });
+  });
+}
+function confirmContinue() { return false; }
+// ================= メインループ =================
+rig.position.set(startPos.x, 0, startPos.z);
+camera.position.set(0, 1.62, 0);
+let saveTimer = 0, promptTimer = 0, wristTimer = 0;
+const clock = new THREE.Clock();
+renderer.setAnimationLoop(() => {
+  const dt = Math.min(clock.getDelta(), 0.06);
+  const t = clock.elapsedTime;
+  if (gameActive) {
+    player.atkCd = Math.max(0, player.atkCd - dt);
+    player.magicCd = Math.max(0, player.magicCd - dt);
+    if (!player.dead) {
+      if (renderer.xr.isPresenting) vrMove(dt);
+      else desktopMove(dt);
+      player.mp = Math.min(player.maxmp, player.mp + 0.35*dt);
+    } else {
+      respawnT -= dt;
+      if (respawnT <= 0) {
+        player.dead = false;
+        player.hp = player.maxhp;
+        rig.position.set(startPos.x, 0, startPos.z);
+        showMsg('目を覚ますと、そこは城の入口だった');
+        hudDirty = true;
+      }
+    }
+    updateEnemies(dt, t);
+    updateProjectiles(dt);
+    AudioSys.tension = anyChasing ? 1 : Math.max(0, AudioSys.tension - dt*0.4);
+    // 扉アニメ
+    for (const d of doors) if (d.open && d.anim < 1) {
+      d.anim = Math.min(1, d.anim + dt*1.2);
+      d.mesh.position.y = WALL_H*0.46 - d.anim*WALL_H*0.88;
+    }
+    // 宝箱アニメ
+    for (const cst of chests) if (cst.opened && cst.anim < 1) {
+      cst.anim = Math.min(1, cst.anim + dt*2);
+      cst.lid.rotation.x = -1.9 * cst.anim;
+    }
+    // 地面アイテム: 回転・浮遊・自動取得
+    for (const g of groundItems) {
+      if (g.taken) continue;
+      g.mesh.rotation.y += dt*1.2;
+      g.mesh.position.y = 0.55 + Math.sin(t*2 + g.c)*0.06;
+      if (Math.hypot(cx2w(g.c)-rig.position.x, rz2w(g.r)-rig.position.z) < 1.05 && !player.dead) {
+        g.taken = true; g.mesh.visible = false;
+        giveItem(g.itemId);
+        saveGame();
+      }
+    }
+    // 剣振りアニメ
+    if (swingT >= 0) {
+      swingT += dt*3;
+      if (swingT >= 1) swingT = -1;
+      else {
+        const a = Math.sin(swingT*Math.PI);
+        swordHolder.rotation.x = -a*1.8;
+        swordHolder.rotation.z = -a*0.5;
+      }
+    } else { swordHolder.rotation.x *= 0.8; swordHolder.rotation.z *= 0.8; }
+    // 秘宝の輝き
+    if (goalObj && !goalObj.taken) {
+      goalObj.mesh.rotation.y += dt;
+      goalObj.mesh.position.y = 1.15 + Math.sin(t*1.5)*0.08;
+    }
+    // 調べるプロンプト
+    promptTimer -= dt;
+    if (promptTimer <= 0) {
+      promptTimer = 0.15;
+      const tgt = player.dead ? null : nearestInteractable();
+      let txt = '';
+      if (tgt) {
+        if (tgt.kind==='door') txt = `${DOOR_NAMES[tgt.obj.ch]}を開ける`;
+        else if (tgt.kind==='chest') txt = '宝箱を開ける';
+        else txt = '王家の秘宝を取る';
+      }
+      if (txt !== promptText) { promptText = txt; hudDirty = true; }
+      const p = $('prompt');
+      if (!renderer.xr.isPresenting && txt) { p.style.display='block'; p.textContent = 'Ｅ： ' + txt; }
+      else p.style.display = 'none';
+    }
+    // 自動セーブ
+    saveTimer += dt;
+    if (saveTimer > 8) { saveTimer = 0; saveGame(); }
+  }
+  // ビネット（移動・ターン時に視野を絞る）
+  const vTarget = renderer.xr.isPresenting ? ((isMoving ? 0.55 : 0) + vignetteBoost) : 0;
+  vignetteBoost = Math.max(0, vignetteBoost - dt*2);
+  vignette.material.opacity += (Math.min(0.85, vTarget) - vignette.material.opacity) * Math.min(1, dt*8);
+  if (player.dead) vignette.material.opacity = Math.min(0.98, vignette.material.opacity + dt*0.6);
+  // 被弾表示（VR）
+  if (vrDmgT > 0) { vrDmgT -= dt*3; vrDmg.material.opacity = Math.max(0, vrDmgT)*0.8; }
+  // 炎のゆらぎ
+  for (const f of flames) {
+    if (f.isSprite || f.type === 'Sprite' || f.material) {
+      if (f.scale) { const s = 0.5 + Math.sin(t*9 + f.position.x*3)*0.07; f.scale.x = s; f.scale.y = s*1.5; }
+      if (f.material) f.material.opacity = 0.85 + Math.sin(t*11 + f.position.z)*0.15;
+    }
+    if (f.isPointLight || f.intensity !== undefined) {
+      if (f.userData && f.userData.flick !== undefined) f.intensity = 1.6 + Math.sin(t*10 + f.userData.flick)*0.35;
+    }
+  }
+  // HUD更新
+  if (hudDirty) { updateDomHud(); hudDirty = false; drawWrist(); }
+  wristTimer += dt;
+  if (renderer.xr.isPresenting && wristTimer > 0.4) { wristTimer = 0; drawWrist(); }
+  renderer.render(scene, camera);
+});
+window.__kiri = { player, rig, camera, enemies, doors, chests, groundItems, giveItem, tryInteract, tryAttack, castFire, gainExp, hurtPlayer, useConsume, saveGame, ITEMS, expNext, walkable, get gameActive(){return gameActive;} };
+</script>
+</body>
+</html>
